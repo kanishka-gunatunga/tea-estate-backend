@@ -1,0 +1,662 @@
+# Tea Estate Backend Requirements
+
+This frontend is a **UI prototype with no API integration**. All data lives in React Context (`app/dashboard/context.tsx`) with hardcoded seed data. There are no `fetch`/`axios` calls, no env vars, and no route protection.
+
+Your Express.js backend should be built from the **TypeScript interfaces and UI behavior** in the components. Below is a full specification.
+
+---
+
+## 1. What the app does
+
+**Tea Estate Management System** for Sri Lankan tea plantations:
+
+| Module | Purpose |
+|--------|---------|
+| Login | Email/password sign-in |
+| Dashboard | KPIs, charts, expense breakdown, harvest by section |
+| Estates | Estates + nested sections |
+| Users | Admin / Planter / Supervisor accounts |
+| Employees | Field workers with service skills |
+| Services | Work types with rates (LKR) |
+| Daily Assignments | Daily work + worker units + payroll |
+| Expenses | Estate expenses with approval workflow |
+| Reminders | Calendar events |
+| Reports | Assignments, payments, expenses, harvest + CSV export |
+| Profile | Edit profile + change password |
+| Backups | Manual/auto DB export |
+| TV Dashboard | Full-screen live estate display |
+
+**Currency:** LKR (`en-LK` formatting)  
+**Locale context:** Sri Lanka (NIC numbers, estates in Nuwara Eliya, Badulla, Kandy)
+
+---
+
+## 2. Recommended Express.js stack
+
+| Layer | Suggestion |
+|-------|------------|
+| Runtime | Node.js 20+ |
+| Framework | Express.js |
+| Database | PostgreSQL (or MySQL) |
+| ORM | Prisma |
+| Auth | JWT (`jsonwebtoken`) + bcrypt |
+| Validation | Zod or Joi |
+| CORS | `cors` for Next.js origin |
+| Scheduler | `node-cron` for auto backups |
+| Export | `csv-writer` or `exceljs` for backup/report files |
+
+**Suggested project structure:**
+
+```
+tea-estate-api/
+├── src/
+│   ├── index.ts
+│   ├── config/
+│   ├── middleware/       # auth, rbac, errorHandler
+│   ├── routes/
+│   ├── controllers/
+│   ├── services/         # business logic (payroll calc, KPIs)
+│   └── utils/
+├── prisma/
+│   └── schema.prisma
+└── .env
+```
+
+---
+
+## 3. Database schema (entities & relationships)
+
+```mermaid
+erDiagram
+    Estate ||--o{ Section : has
+    Estate ||--o{ Employee : employs
+    Estate ||--o{ Expense : tracks
+    Estate ||--o{ DailyAssignment : schedules
+    Estate ||--o{ CalendarEvent : hosts
+    Estate ||--o{ User : "assigned to"
+    
+    Service ||--o{ DailyAssignment : defines
+    Section ||--o{ DailyAssignment : location
+    DailyAssignment ||--o{ WorkerAssignment : includes
+    Employee ||--o{ WorkerAssignment : performs
+    
+    User ||--|| UserProfile : has
+    User ||--|| AuthCredential : authenticates
+```
+
+### 3.1 `Estate`
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| id | string (cuid/uuid) | auto | e.g. `estate-1` |
+| name | string | yes | |
+| location | string | yes | |
+| mapsLink | string | no | Google Maps URL |
+| area | number | no | acres |
+| establishedYear | number | no | |
+| planter | string | no | **plain text**, not FK to User |
+| supervisor | string | no | **plain text**, not FK to User |
+| status | enum | yes | `active` \| `inactive` |
+| createdAt, updatedAt | datetime | auto | |
+
+### 3.2 `Section` (child of Estate)
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| estateId | FK → Estate | yes |
+| name | string | yes |
+| area | number | no |
+| description | string | no |
+
+### 3.3 `User` (system users — admin/planter/supervisor)
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| name | string | yes |
+| email | string | yes, unique |
+| phone | string | no |
+| role | enum | yes | `Administrator` \| `Planter` \| `Supervisor` |
+| registeredDate | date | auto on create |
+| status | enum | yes | `active` \| `inactive` |
+| assignedEstateId | FK → Estate | no |
+| passwordHash | string | yes | **not in UI**, required for auth |
+
+### 3.4 `UserProfile` (logged-in user details)
+
+Separate from `User` in the frontend today, but should map to the same `User` record in the backend:
+
+| Field | Type |
+|-------|------|
+| name, email, phone | string |
+| address | string |
+| role | string |
+| memberSince | date |
+
+### 3.5 `Employee` (field workers)
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | yes | Format `EMP001`, auto-increment |
+| name | string | yes |
+| gender | enum | yes | `Male` \| `Female` \| `Other` |
+| phone | string | no |
+| nic | string | yes | Sri Lankan NIC |
+| estateId | FK → Estate | yes |
+| serviceCategories | string[] | yes | **Service names**, not IDs |
+| status | enum | yes | `active` \| `inactive` |
+
+> **Design decision:** Store `serviceCategories` as a join table `EmployeeService` referencing `Service.id` instead of names, and resolve names in API responses.
+
+### 3.6 `Service`
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| name | string | yes |
+| description | string | no |
+| status | enum | yes | `active` \| `inactive` |
+| rate | number | yes | LKR, must be > 0 |
+| unitType | enum | yes | `Hours` \| `Acres` \| `Units` \| `KG` |
+
+**Seed services from frontend:**
+
+- Weeding — 350 LKR/Hours  
+- Pruning — 400 LKR/Hours  
+- Fertilizing — 1200 LKR/Acres  
+- Pesticide Spraying — 250 LKR/Units  
+- Irrigation — 300 LKR/Hours  
+- Leaf Plucking — 50 LKR/KG  
+
+> **Note:** The service form dropdown omits `KG`, but seed data uses it for Leaf Plucking. Backend should support all four unit types.
+
+### 3.7 `DailyAssignment`
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| date | date (YYYY-MM-DD) | yes |
+| estateId | FK | yes |
+| sectionId | FK | yes |
+| serviceId | FK | yes |
+| totalAmount | number | computed |
+| status | enum | yes | `pending` \| `approved` \| `completed` |
+
+### 3.8 `WorkerAssignment` (line items)
+
+| Field | Type |
+|-------|------|
+| id | string |
+| dailyAssignmentId | FK |
+| employeeId | FK |
+| unitsCompleted | number (≥ 0) |
+| paymentAmount | number (computed) |
+
+### 3.9 `Expense`
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| date | date | yes |
+| category | enum | yes | `Transport` \| `Tools` \| `Utilities` \| `Other` |
+| description | string | yes |
+| amount | number | yes, > 0 |
+| estateId | FK | yes |
+| sectionId | FK | no |
+| status | enum | yes | `pending` \| `approved` \| `rejected` |
+
+### 3.10 `CalendarEvent`
+
+| Field | Type | Required |
+|-------|------|----------|
+| id | string | auto |
+| title | string | yes |
+| description | string | no |
+| startDate | date | yes |
+| endDate | date | no |
+| recurrence | enum | yes | `none` \| `daily` \| `weekly` \| `monthly` \| `yearly` |
+| color | string (hex) | yes |
+| category | enum | yes | Meeting, Cultivation, Maintenance, Review, Finance, Training, Other |
+| estateId | FK | no |
+
+### 3.11 `BackupRecord`
+
+| Field | Type |
+|-------|------|
+| id | string |
+| filename | string |
+| createdAt | datetime |
+| type | `Auto` \| `Manual` |
+| sizeKB | number |
+| records | number \| null |
+| status | `success` \| `failed` |
+| filePath | string (server storage) |
+
+### 3.12 `BackupSettings`
+
+| Field | Type |
+|-------|------|
+| enabled | boolean |
+| schedule | `daily` \| `weekly` \| `monthly` |
+
+---
+
+## 4. Complete API specification
+
+Base URL: `http://localhost:4000/api` (suggested)
+
+### 4.1 Authentication
+
+| Method | Endpoint | Body | Response |
+|--------|----------|------|----------|
+| POST | `/auth/login` | `{ email, password }` | `{ token, user: UserProfile }` |
+| POST | `/auth/logout` | — | `{ success: true }` |
+| GET | `/auth/me` | — | `UserProfile` |
+| PATCH | `/auth/profile` | `{ name, email, phone, address }` | `UserProfile` |
+| POST | `/auth/change-password` | `{ currentPassword, newPassword, confirmPassword }` | `{ success, message }` |
+
+**Validation rules (from UI):**
+- Login: email format, password min 4 chars (login form); use min 8 on backend for security
+- Change password: new password min 8 chars, must match confirm
+- Seed login today: `admin@gmail.com` / `admin123` (mismatches seed users like `admin@greenleaf.com`)
+
+**Auth mechanism:** JWT in `Authorization: Bearer <token>` header (or httpOnly cookie).
+
+---
+
+### 4.2 Estates & Sections
+
+| Method | Endpoint | Notes |
+|--------|----------|-------|
+| GET | `/estates` | Query: `?status=active\|inactive`. Return estates **with nested sections** |
+| GET | `/estates/:id` | Single estate with sections |
+| POST | `/estates` | Create estate |
+| PUT | `/estates/:id` | Update estate |
+| DELETE | `/estates/:id` | Soft-delete or cascade rules needed |
+| POST | `/estates/:estateId/sections` | `{ name, area, description }` |
+| PUT | `/estates/:estateId/sections/:sectionId` | Update section |
+| DELETE | `/estates/:estateId/sections/:sectionId` | Delete section |
+
+**Create estate body:**
+```json
+{
+  "name": "Greenleaf Tea Estate",
+  "location": "Nuwara Eliya, Sri Lanka",
+  "mapsLink": "https://maps.google.com/?q=...",
+  "area": 450,
+  "establishedYear": 2005,
+  "planter": "Carter Bator",
+  "supervisor": "Carter Bator",
+  "status": "active"
+}
+```
+
+If `mapsLink` is empty, auto-generate: `https://maps.google.com/?q=${encodeURIComponent(location)}`
+
+---
+
+### 4.3 Users
+
+| Method | Endpoint | Query / Body |
+|--------|----------|--------------|
+| GET | `/users` | `?role=Administrator\|Planter\|Supervisor&search=` |
+| POST | `/users` | User body + initial password |
+| PUT | `/users/:id` | User body |
+| DELETE | `/users/:id` | — |
+
+**User body:**
+```json
+{
+  "name": "string",
+  "email": "string",
+  "phone": "string",
+  "role": "Administrator | Planter | Supervisor",
+  "assignedEstateId": "string (optional)",
+  "status": "active | inactive"
+}
+```
+
+---
+
+### 4.4 Employees
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/employees` | `?estateId=&category=&status=active\|inactive&search=` |
+| POST | `/employees` | Employee body |
+| PUT | `/employees/:id` | Employee body |
+| DELETE | `/employees/:id` | — |
+
+**Employee ID generation:** `EMP` + zero-padded number (`EMP001`, `EMP002`, …)
+
+**Required on create:** `name`, `nic`, `estateId`, at least one `serviceCategory`
+
+---
+
+### 4.5 Services
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/services` | `?status=active\|inactive&search=` |
+| POST | `/services` | Service body |
+| PUT | `/services/:id` | Service body |
+| DELETE | `/services/:id` | Block if referenced by active assignments |
+
+---
+
+### 4.6 Daily Assignments
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/assignments` | `?date=YYYY-MM-DD&estateId=&status=` |
+| POST | `/assignments` | Create assignment (status defaults to `pending`) |
+| PUT | `/assignments/:id` | Update header fields |
+| DELETE | `/assignments/:id` | Delete assignment + workers |
+| POST | `/assignments/:id/workers` | Add worker |
+| PUT | `/assignments/:id/workers/:employeeId` | Update units |
+| DELETE | `/assignments/:id/workers/:employeeId` | Remove worker |
+| PATCH | `/assignments/:id/status` | `{ status: "pending" \| "approved" \| "completed" }` |
+
+**Create assignment:**
+```json
+{
+  "date": "2026-06-15",
+  "estateId": "estate-1",
+  "sectionId": "sec-1",
+  "serviceId": "service-6"
+}
+```
+
+**Add worker:**
+```json
+{
+  "employeeId": "EMP001",
+  "unitsCompleted": 25
+}
+```
+
+#### Critical business rules
+
+**Payment calculation** (must run server-side):
+
+```
+paymentAmount = round(unitsCompleted × service.rate × 100) / 100
+totalAmount   = sum of all worker paymentAmounts for that assignment
+```
+
+**Worker eligibility** — employee can be added only if:
+1. `status === "active"`
+2. `estateId` matches assignment estate
+3. `serviceCategories` includes the service **name**
+4. Not already on that assignment
+
+**Assignment status:** UI displays `pending` / `approved` / `completed` but has **no approve button** yet. Backend should still expose status update; frontend will need wiring later.
+
+---
+
+### 4.7 Expenses
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/expenses` | `?date=&category=&estateId=&status=` |
+| POST | `/expenses` | Expense body (default status: `pending`) |
+| PUT | `/expenses/:id` | Expense body |
+| DELETE | `/expenses/:id` | — |
+
+---
+
+### 4.8 Calendar Events
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/events` | `?startDate=&endDate=&estateId=` |
+| POST | `/events` | Event body |
+| PUT | `/events/:id` | Event body |
+| DELETE | `/events/:id` | — |
+
+**Recurrence:** Frontend expands `daily`, `weekly`, `monthly`, `yearly` client-side for calendar display. Backend can either:
+- Store recurrence rule and expand on read, or
+- Store base event and let frontend keep expanding (simpler for v1)
+
+---
+
+### 4.9 Reports (aggregation endpoints)
+
+Prefer server-side aggregation instead of sending full datasets to the client.
+
+| Method | Endpoint | Query params |
+|--------|----------|--------------|
+| GET | `/reports/assignments` | `fromDate, toDate, estateId, sectionId, workerId, serviceId` |
+| GET | `/reports/payments` | same |
+| GET | `/reports/expenses` | `fromDate, toDate, estateId, sectionId` |
+| GET | `/reports/harvest` | same as assignments |
+| GET | `/reports/:type/export` | same + `format=csv` |
+
+**Response shapes:**
+
+```typescript
+// Assignments report row
+{ date, estateName, sectionName, serviceName, workerName, employeeId, units, unitType, rate, payment }
+
+// Payments report row (grouped by employee)
+{ employeeId, workerName, estateName, totalUnits, unitType, grossPayment }
+
+// Expenses report row
+{ date, estateName, sectionOrCategory, description, amount, status }
+
+// Harvest report row (grouped by estate + section)
+{ estateName, sectionName, totalHarvest, totalPayment, workerCount }
+```
+
+**Harvest filter:** Include assignments where `service.unitType === "KG"` OR `service.name.toLowerCase() === "leaf plucking"`.
+
+---
+
+### 4.10 Dashboard analytics
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/dashboard/kpis` | `estateId, startDate, endDate` |
+| GET | `/dashboard/expense-breakdown` | `estateId, startDate, endDate` |
+| GET | `/dashboard/monthly-trends` | `estateId, year` |
+| GET | `/dashboard/section-harvest` | `estateId, startDate, endDate` |
+| GET | `/dashboard/upcoming-events` | `estateId, fromDate, limit=5` |
+
+**KPI calculation rules:**
+
+| KPI | Rule |
+|-----|------|
+| Active workers | `active` employees on estate / total employees on estate |
+| Plucked KG | Sum `unitsCompleted` where service is Leaf Plucking (`service-6`) AND `status === "approved"` |
+| Payroll LKR | Sum `totalAmount` of approved assignments in date range |
+| Expenses LKR | Sum expense amounts where `status !== "rejected"` |
+
+**Expense breakdown categories:** Utilities, Transport, Tools, Other (map unknown categories to Other)
+
+**Monthly trends:** Per month: `{ month, payroll, expenses }` for chart
+
+**Section harvest:** Per section, sum KG from approved Leaf Plucking assignments
+
+---
+
+### 4.11 TV Dashboard
+
+| Method | Endpoint | Query |
+|--------|----------|-------|
+| GET | `/tv/dashboard` | `estateId` |
+
+Single aggregated response for the TV screen:
+- Today’s harvest KG
+- Month harvest KG
+- Today/month payroll
+- Today/month expenses
+- Section harvest breakdown
+- Recent assignments (today)
+- Upcoming events
+
+Use **server date**, not hardcoded `2026-06-09` from the prototype.
+
+---
+
+### 4.12 Backups
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| GET | `/backups` | List backup history |
+| POST | `/backups` | `{ type: "Manual" }` — generate + store file |
+| GET | `/backups/:id/download` | File download |
+| DELETE | `/backups/:id` | Remove backup |
+| GET | `/backups/settings` | Auto-backup config |
+| PUT | `/backups/settings` | `{ enabled, schedule }` |
+
+**Export contents** (from `Backups.tsx`):
+1. Estates  
+2. Users  
+3. Employees  
+4. Services  
+5. Expenses  
+6. Daily Assignments (with worker rows)
+
+UI labels files `.xlsx` but content is CSV — backend can return real CSV or generate actual XLSX.
+
+**Auto backup:** Cron job when `enabled=true` per schedule (`daily` / `weekly` / `monthly`).
+
+---
+
+## 5. Authentication & authorization
+
+### Current frontend behavior
+- Login is fake (`setTimeout` + hardcoded credentials)
+- Dashboard routes are **not protected**
+- All nav items visible to everyone
+- No role-based UI
+
+### Backend should implement
+
+| Role | Suggested access |
+|------|------------------|
+| **Administrator** | Full CRUD on all modules |
+| **Planter** | Own estate(s): employees, assignments, expenses, reports |
+| **Supervisor** | Assigned estate: assignments, expenses (create), limited reports |
+
+**Minimum for v1:**
+- JWT auth on all `/api/*` except `/auth/login`
+- Password hashing with bcrypt
+- Link login user to `User` + profile fields
+- Optional: estate-scoped queries for Planter/Supervisor
+
+---
+
+## 6. Environment variables
+
+Not defined in the frontend today. You will need:
+
+```env
+# Server
+PORT=4000
+NODE_ENV=development
+CORS_ORIGIN=http://localhost:3000
+
+# Database
+DATABASE_URL=postgresql://user:pass@localhost:5432/tea_estate
+
+# Auth
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=7d
+
+# Backups
+BACKUP_STORAGE_PATH=./backups
+```
+
+**Frontend (when integrated):**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4000/api
+```
+
+---
+
+## 7. What you do NOT need (for v1)
+
+| Feature | Status |
+|---------|--------|
+| File uploads | Not used (backup restore is placeholder text only) |
+| WebSockets / SSE | Not used (TV clock is client-side `setInterval`) |
+| Payment gateways | Not used |
+| Email/SMS | Not used |
+| Google Maps API | Only static map links stored |
+| Pagination | UI loads full lists — optional for v1 |
+
+---
+
+## 8. Frontend gaps to account for
+
+These affect backend design decisions:
+
+| Gap | Backend implication |
+|-----|---------------------|
+| No API layer | You define the contract; frontend will need integration later |
+| Login email mismatch | `admin@gmail.com` vs seed `admin@greenleaf.com` — pick one seed user |
+| Profile ≠ User table | Merge into one `User` model with `address` field |
+| `planter`/`supervisor` are strings | Keep as text or add optional FK to `User` |
+| Employee categories use service **names** | Prefer FK join table; return names in API |
+| No assignment approve UI | Expose `PATCH /assignments/:id/status` anyway |
+| `KG` missing from service form | Support in API enum |
+| Hardcoded demo dates | Use real server dates in analytics |
+| No password on User CRUD | Add password on user create + reset flow |
+| Duplicate `UserProfile` type | Single source in API response |
+
+---
+
+## 9. Suggested implementation order
+
+1. **Prisma schema + migrations** — all entities above  
+2. **Seed script** — mirror `context.tsx` seed data  
+3. **Auth** — login, JWT middleware, profile, change password  
+4. **CRUD APIs** — estates → sections → services → users → employees  
+5. **Assignments** — with payment calculation and worker eligibility  
+6. **Expenses + events**  
+7. **Dashboard + reports** — aggregation endpoints  
+8. **Backups** — export + cron scheduler  
+9. **TV dashboard** — single aggregate endpoint  
+10. **Frontend integration** — replace Context with API calls + `NEXT_PUBLIC_API_URL`
+
+---
+
+## 10. Standard API response format
+
+Use a consistent envelope:
+
+```json
+// Success
+{ "success": true, "data": { ... } }
+
+// Error
+{ "success": false, "error": { "code": "VALIDATION_ERROR", "message": "..." } }
+```
+
+**HTTP status codes:**
+- `200` — OK  
+- `201` — Created  
+- `400` — Validation error  
+- `401` — Unauthorized  
+- `403` — Forbidden (RBAC)  
+- `404` — Not found  
+- `409` — Conflict (duplicate email, NIC, etc.)  
+- `500` — Server error  
+
+---
+
+## Summary
+
+You are building a **REST API for a tea estate operations platform** with:
+
+- **10 core entities** (Estate, Section, User, Employee, Service, DailyAssignment, WorkerAssignment, Expense, CalendarEvent, Backup)
+- **~45 endpoints** across auth, CRUD, analytics, reports, backups, and TV display
+- **Key business logic:** payroll calculation, worker eligibility, harvest KPIs, expense aggregation
+- **Auth:** JWT + bcrypt, 3 roles
+- **No real-time or file upload** requirements for v1
+
+The frontend is ready for UI/UX but expects you to own all persistence, validation, and computation on the Express side.
+
+If you want, I can next scaffold the Express + Prisma project with the schema and route stubs in a separate folder.
