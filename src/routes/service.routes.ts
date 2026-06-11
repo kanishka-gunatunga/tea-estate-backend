@@ -7,6 +7,7 @@ import {
   updateService,
 } from '../controllers/catalog.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import { requireRoles } from '../middleware/rbac.middleware';
 
 const router = Router();
 
@@ -14,8 +15,8 @@ router.use(authenticate);
 
 router.get('/', listServices);
 router.get('/:id', getService);
-router.post('/', createService);
-router.put('/:id', updateService);
-router.delete('/:id', deleteService);
+router.post('/', requireRoles('Administrator'), createService);
+router.put('/:id', requireRoles('Administrator'), updateService);
+router.delete('/:id', requireRoles('Administrator'), deleteService);
 
 export default router;

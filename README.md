@@ -101,12 +101,43 @@ The API will be available at `http://localhost:3000`.
 | `npm run prisma:studio` | Open Prisma Studio |
 | `npm run prisma:seed` | Seed the database |
 
-## API Endpoints
+## API Base URL
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/health` | API health check |
-| GET | `/api/v1/health/db` | Database connectivity check |
+`http://localhost:3000/api/v1`
+
+## API Modules
+
+| Module | Base path | Auth |
+|--------|-----------|------|
+| Health | `/health` | Public |
+| Auth | `/auth` | Login public; others JWT |
+| Estates & sections | `/estates` | JWT + estate scope |
+| Services | `/services` | JWT (mutations: Admin) |
+| Users | `/users` | JWT + Admin only |
+| Employees | `/employees` | JWT + estate scope |
+| Assignments | `/assignments` | JWT + estate scope |
+| Expenses | `/expenses` | JWT + estate scope |
+| Events | `/events` | JWT + estate scope |
+| Dashboard | `/dashboard` | JWT + estate scope |
+| TV display | `/tv` | JWT + estate scope |
+
+## Response Format
+
+```json
+// Success
+{ "success": true, "data": { } }
+
+// Error
+{ "success": false, "error": { "code": "VALIDATION_ERROR", "message": "...", "details": { } } }
+```
+
+## Roles
+
+| Role | Access |
+|------|--------|
+| Administrator | Full access to all estates and modules |
+| Planter | Scoped to `assignedEstateId` on data modules |
+| Supervisor | Scoped to `assignedEstateId` on data modules |
 
 ## Architecture Notes
 
@@ -116,6 +147,7 @@ The API will be available at `http://localhost:3000`.
 - **Graceful shutdown:** SIGINT/SIGTERM handlers disconnect Prisma cleanly
 - **Single Prisma instance:** reused across the app to avoid connection pool exhaustion
 
-## Next Steps
+## Pending (awaiting client input)
 
-Define domain models in `prisma/schema.prisma`, run migrations, and implement feature modules in `src/services/` and `src/controllers/`.
+- Reports (`/reports/...`) and CSV export
+- Backups (`/backups/...`) and auto-backup scheduler

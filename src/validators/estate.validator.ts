@@ -4,6 +4,7 @@ const estateStatusSchema = z.enum(['active', 'inactive']);
 
 export const estateQuerySchema = z.object({
   status: estateStatusSchema.optional(),
+  estateId: z.string().optional(),
 });
 
 export const createEstateSchema = z.object({

@@ -47,9 +47,12 @@ const estateInclude = {
   },
 };
 
-export async function listEstates(status?: EstateStatus) {
+export async function listEstates(status?: EstateStatus, estateId?: string) {
   const estates = await prisma.estate.findMany({
-    where: status ? { status } : undefined,
+    where: {
+      ...(status ? { status } : {}),
+      ...(estateId ? { id: estateId } : {}),
+    },
     include: estateInclude,
     orderBy: { name: 'asc' },
   });

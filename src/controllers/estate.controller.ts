@@ -11,7 +11,7 @@ import {
 
 export async function listEstates(req: Request, res: Response): Promise<void> {
   const query = estateQuerySchema.parse(req.query);
-  const estates = await estateService.listEstates(query.status);
+  const estates = await estateService.listEstates(query.status, query.estateId);
 
   res.status(200).json({ success: true, data: estates });
 }
