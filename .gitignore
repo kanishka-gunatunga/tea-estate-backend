@@ -27,7 +27,9 @@ lerna-debug.log*
 coverage/
 .nyc_output/
 
-# Caches & temp files
+# Runtime backups (generated ZIP files)
+backups/
+
 .cache/
 .temp/
 tmp/

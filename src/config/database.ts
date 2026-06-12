@@ -1,18 +1,7 @@
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { PrismaClient } from '../../generated/prisma/client';
 import { env } from './env';
-
-function parseDatabaseUrl(url: string) {
-  const parsed = new URL(url);
-
-  return {
-    host: parsed.hostname,
-    port: parsed.port ? Number(parsed.port) : 3306,
-    user: decodeURIComponent(parsed.username),
-    password: decodeURIComponent(parsed.password),
-    database: parsed.pathname.replace(/^\//, ''),
-  };
-}
+import { parseDatabaseUrl } from '../utils/database-url';
 
 const dbConfig = parseDatabaseUrl(env.DATABASE_URL);
 

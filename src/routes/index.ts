@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import assignmentRoutes from './assignment.routes';
 import authRoutes from './auth.routes';
+import backupRoutes from './backup.routes';
 import dashboardRoutes from './dashboard.routes';
 import employeeRoutes from './employee.routes';
 import estateRoutes from './estate.routes';
@@ -24,5 +25,6 @@ router.use('/expenses', expenseRoutes);
 router.use('/events', eventRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/tv', tvRoutes);
+router.use('/backups', backupRoutes);
 
 export default router;

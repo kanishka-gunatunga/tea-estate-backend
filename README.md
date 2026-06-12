@@ -120,6 +120,19 @@ The API will be available at `http://localhost:3000`.
 | Events | `/events` | JWT + estate scope |
 | Dashboard | `/dashboard` | JWT + estate scope |
 | TV display | `/tv` | JWT + estate scope |
+| Backups | `/backups` | JWT + Administrator only |
+
+## Backups
+
+Manual admin backup creates a ZIP on the server containing:
+
+- `database.sql` — full MySQL dump (all estate data)
+- `data.json` — readable JSON export (passwords excluded)
+- `manifest.json` — metadata and record counts
+
+Requires `mysqldump` in PATH. Configure `BACKUP_STORAGE_PATH` (default `./backups`).
+
+Restore (ops): `mysql -u user -p tea_estate_db < database.sql` from extracted ZIP.
 
 ## Response Format
 
@@ -150,4 +163,3 @@ The API will be available at `http://localhost:3000`.
 ## Pending (awaiting client input)
 
 - Reports (`/reports/...`) and CSV export
-- Backups (`/backups/...`) and auto-backup scheduler
