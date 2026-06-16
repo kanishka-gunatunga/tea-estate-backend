@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import type { UserRole, UserStatus } from '../../generated/prisma/client';
+import type { UserRole, UserStatus } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 
@@ -12,6 +12,7 @@ function formatUser(user: {
   registeredDate: Date;
   status: UserStatus;
   assignedEstateId: string | null;
+  profilePhoto: string | null;
 }) {
   return {
     id: user.id,
@@ -22,12 +23,14 @@ function formatUser(user: {
     registeredDate: user.registeredDate.toISOString().split('T')[0],
     status: user.status,
     assignedEstateId: user.assignedEstateId,
+    profilePhoto: user.profilePhoto,
   };
 }
 
-export async function listUsers(filters: { role?: UserRole; search?: string }) {
+export async function listUsers(filters: { role?: UserRole; search?: string; status?: UserStatus }) {
   const users = await prisma.user.findMany({
     where: {
+      status: filters.status ?? 'active',
       role: filters.role,
       ...(filters.search
         ? {
@@ -110,6 +113,7 @@ export async function updateUser(
     role: UserRole;
     assignedEstateId: string | null;
     status: UserStatus;
+    profilePhoto: string | null;
   }>,
 ) {
   const existing = await prisma.user.findUnique({ where: { id } });

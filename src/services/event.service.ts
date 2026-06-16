@@ -1,4 +1,4 @@
-import type { EventCategory, Recurrence } from '../../generated/prisma/client';
+import type { EventCategory, Recurrence } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { parseDateOnly } from '../utils/date';

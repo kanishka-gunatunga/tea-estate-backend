@@ -1,4 +1,4 @@
-import type { AssignmentStatus } from '../../generated/prisma/client';
+import type { AssignmentStatus } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { toNumber } from '../utils/decimal';

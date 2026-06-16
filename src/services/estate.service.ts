@@ -1,4 +1,4 @@
-import type { EstateStatus, SectionStatus } from '../../generated/prisma/client';
+import type { EstateStatus, SectionStatus } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { buildMapsLink } from '../utils/maps';
@@ -43,6 +43,7 @@ function formatEstate(estate: {
 
 const estateInclude = {
   sections: {
+    where: { status: 'active' as const },
     orderBy: { name: 'asc' as const },
   },
 };
@@ -50,6 +51,7 @@ const estateInclude = {
 export async function listEstates(status?: EstateStatus, estateId?: string) {
   const estates = await prisma.estate.findMany({
     where: {
+      isDeleted: false,
       ...(status ? { status } : {}),
       ...(estateId ? { id: estateId } : {}),
     },
@@ -61,8 +63,8 @@ export async function listEstates(status?: EstateStatus, estateId?: string) {
 }
 
 export async function getEstateById(id: string) {
-  const estate = await prisma.estate.findUnique({
-    where: { id },
+  const estate = await prisma.estate.findFirst({
+    where: { id, isDeleted: false },
     include: estateInclude,
   });
 
@@ -107,7 +109,7 @@ export async function updateEstate(
     status: EstateStatus;
   }>,
 ) {
-  const existing = await prisma.estate.findUnique({ where: { id } });
+  const existing = await prisma.estate.findFirst({ where: { id, isDeleted: false } });
 
   if (!existing) {
     throw new AppError(404, 'Estate not found');
@@ -132,7 +134,7 @@ export async function updateEstate(
 }
 
 export async function deleteEstate(id: string) {
-  const existing = await prisma.estate.findUnique({ where: { id } });
+  const existing = await prisma.estate.findFirst({ where: { id, isDeleted: false } });
 
   if (!existing) {
     throw new AppError(404, 'Estate not found');
@@ -140,7 +142,7 @@ export async function deleteEstate(id: string) {
 
   const estate = await prisma.estate.update({
     where: { id },
-    data: { status: 'inactive' },
+    data: { isDeleted: true, status: 'inactive' },
     include: estateInclude,
   });
 
@@ -151,7 +153,7 @@ export async function createSection(
   estateId: string,
   data: { name: string; area?: number; description?: string },
 ) {
-  const estate = await prisma.estate.findUnique({ where: { id: estateId } });
+  const estate = await prisma.estate.findFirst({ where: { id: estateId, isDeleted: false } });
 
   if (!estate) {
     throw new AppError(404, 'Estate not found');

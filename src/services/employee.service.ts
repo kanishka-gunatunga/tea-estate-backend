@@ -1,4 +1,4 @@
-import type { EmployeeStatus, Gender } from '../../generated/prisma/client';
+import type { EmployeeStatus, Gender } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { generateEmployeeId } from '../utils/employee-id';
@@ -55,7 +55,7 @@ export async function listEmployees(filters: {
   const employees = await prisma.employee.findMany({
     where: {
       estateId: filters.estateId,
-      status: filters.status,
+      status: filters.status ?? 'active',
       ...(filters.category
         ? {
             serviceCategories: {

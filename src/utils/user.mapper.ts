@@ -1,4 +1,4 @@
-import type { User } from '../../generated/prisma/client';
+import type { User } from '../../generated/prisma';
 import type { UserProfile } from '../types/user.types';
 
 export function toUserProfile(user: User): UserProfile {
@@ -11,5 +11,6 @@ export function toUserProfile(user: User): UserProfile {
     role: user.role,
     memberSince: user.registeredDate.toISOString().split('T')[0],
     assignedEstateId: user.assignedEstateId,
+    profilePhoto: user.profilePhoto,
   };
 }

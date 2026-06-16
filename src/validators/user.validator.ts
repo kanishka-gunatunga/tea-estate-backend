@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const userQuerySchema = z.object({
   role: z.enum(['Administrator', 'Planter', 'Supervisor']).optional(),
   search: z.string().optional(),
+  status: z.enum(['active', 'inactive']).optional(),
 });
 
 export const createUserSchema = z.object({
@@ -22,4 +23,5 @@ export const updateUserSchema = z.object({
   role: z.enum(['Administrator', 'Planter', 'Supervisor']).optional(),
   assignedEstateId: z.string().nullable().optional(),
   status: z.enum(['active', 'inactive']).optional(),
+  profilePhoto: z.string().nullable().optional(),
 });

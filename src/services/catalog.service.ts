@@ -1,4 +1,4 @@
-import type { ServiceStatus } from '../../generated/prisma/client';
+import type { ServiceStatus } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { toNumber } from '../utils/decimal';
@@ -24,7 +24,7 @@ function formatService(service: {
 export async function listServices(filters: { status?: ServiceStatus; search?: string }) {
   const services = await prisma.service.findMany({
     where: {
-      status: filters.status,
+      status: filters.status ?? 'active',
       ...(filters.search
         ? {
             OR: [

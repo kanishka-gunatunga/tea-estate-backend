@@ -1,4 +1,4 @@
-import type { ExpenseCategory, ExpenseStatus } from '../../generated/prisma/client';
+import type { ExpenseCategory, ExpenseStatus } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import { toNumber } from '../utils/decimal';
@@ -67,7 +67,7 @@ export async function listExpenses(filters: {
     where: {
       category: filters.category,
       estateId: filters.estateId,
-      status: filters.status,
+      status: filters.status ?? { not: 'rejected' },
       ...(filters.date ? { date: parseDateOnly(filters.date) } : {}),
     },
     include: expenseInclude,

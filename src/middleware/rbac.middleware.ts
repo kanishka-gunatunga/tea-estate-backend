@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { UserRole } from '../../generated/prisma/client';
+import type { UserRole } from '../../generated/prisma';
 import { prisma } from '../config/database';
 import { ErrorCode } from '../utils/api-errors';
 import { getParam } from '../utils/params';
