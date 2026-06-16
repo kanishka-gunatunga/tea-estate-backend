@@ -64,3 +64,20 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     data: { message: 'Password changed successfully' },
   });
 }
+
+export async function updateProfilePhoto(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError(401, 'Authentication required');
+  }
+
+  if (!req.file) {
+    throw new AppError(400, 'Photo file is required');
+  }
+
+  const profile = await authService.updateProfilePhoto(req.user.id, req.file);
+
+  res.status(200).json({
+    success: true,
+    data: profile,
+  });
+}

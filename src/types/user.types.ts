@@ -1,4 +1,4 @@
-import type { UserRole } from '../../generated/prisma/client';
+import type { UserRole } from '../../generated/prisma';
 
 export interface UserProfile {
   id: string;
@@ -9,6 +9,7 @@ export interface UserProfile {
   role: UserRole;
   memberSince: string;
   assignedEstateId: string | null;
+  profilePhoto: string | null;
 }
 
 export interface AuthUser {

@@ -1,7 +1,7 @@
 // Tea Estate Management System — database schema
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -120,6 +120,7 @@ model Estate {
   planter         String?
   supervisor      String?
   status          EstateStatus @default(active)
+  isDeleted       Boolean      @default(false)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 
@@ -162,6 +163,7 @@ model User {
   status           UserStatus @default(active)
   assignedEstateId String?
   passwordHash     String
+  profilePhoto     String?    @db.Text
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
 

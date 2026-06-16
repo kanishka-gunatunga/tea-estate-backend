@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/error.middleware';
 import type { UserProfile } from '../types/user.types';
+import { put } from '@vercel/blob';
 import { signToken } from '../utils/jwt';
 import { toUserProfile } from '../utils/user.mapper';
 
@@ -88,4 +89,28 @@ export async function changePassword(
     where: { id: userId },
     data: { passwordHash },
   });
+}
+
+export async function updateProfilePhoto(userId: string, file: Express.Multer.File): Promise<UserProfile> {
+  const existing = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!existing) {
+    throw new AppError(404, 'User not found');
+  }
+
+  try {
+    const blob = await put(`profiles/${userId}-${Date.now()}-${file.originalname}`, file.buffer, {
+      access: 'public',
+    });
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: blob.url },
+    });
+
+    return toUserProfile(user);
+  } catch (error) {
+    console.error('Blob upload error:', error);
+    throw new AppError(500, 'Failed to upload photo to storage');
+  }
 }

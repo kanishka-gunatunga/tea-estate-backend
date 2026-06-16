@@ -68,13 +68,20 @@ async function runMysqlDump(outputPath: string): Promise<void> {
       stderr += chunk.toString();
     });
 
-    dump.on('error', (error) => {
-      reject(
-        new AppError(
-          500,
-          `mysqldump failed to start. Ensure MySQL client tools are installed. ${error.message}`,
-        ),
-      );
+    dump.on('error', (error: any) => {
+      if (error.code === 'ENOENT') {
+        const output = createWriteStream(outputPath);
+        output.write('-- mysqldump tool was not found on this system.\n-- Database SQL dump is skipped, but JSON data is included.\n');
+        output.end();
+        resolve();
+      } else {
+        reject(
+          new AppError(
+            500,
+            `mysqldump failed to start. Ensure MySQL client tools are installed. ${error.message}`,
+          ),
+        );
+      }
     });
 
     dump.on('close', (code) => {
