@@ -1,4 +1,3 @@
-import { ZipArchive } from 'archiver';
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
 import { mkdir, rm, stat, unlink, writeFile } from 'node:fs/promises';
@@ -99,9 +98,12 @@ async function createZipArchive(
   zipPath: string,
   files: Array<{ path: string; name: string }>,
 ): Promise<void> {
+  const archiverModule = await import('archiver');
+  const archiver = (archiverModule.default || archiverModule) as any;
+
   await new Promise<void>((resolve, reject) => {
     const output = createWriteStream(zipPath);
-    const archive = new ZipArchive({ zlib: { level: 9 } });
+    const archive = archiver('zip', { zlib: { level: 9 } });
 
     output.on('close', () => resolve());
     archive.on('error', (error: Error) => reject(error));
