@@ -55,7 +55,7 @@ export async function listEmployees(filters: {
   const employees = await prisma.employee.findMany({
     where: {
       estateId: filters.estateId,
-      status: filters.status ?? 'active',
+      status: filters.status,
       ...(filters.category
         ? {
             serviceCategories: {
@@ -202,9 +202,8 @@ export async function deleteEmployee(id: string) {
     throw new AppError(404, 'Employee not found');
   }
 
-  const employee = await prisma.employee.update({
+  const employee = await prisma.employee.delete({
     where: { id },
-    data: { status: 'inactive' },
     include: employeeInclude,
   });
 
