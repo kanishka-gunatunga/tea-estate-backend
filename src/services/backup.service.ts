@@ -68,7 +68,7 @@ async function runMysqlDump(outputPath: string): Promise<void> {
       stderr += chunk.toString();
     });
 
-    dump.on('error', (error: any) => {
+    dump.on('error', (error: Error & { code?: string }) => {
       if (error.code === 'ENOENT') {
         const output = createWriteStream(outputPath);
         output.write('-- mysqldump tool was not found on this system.\n-- Database SQL dump is skipped, but JSON data is included.\n');
