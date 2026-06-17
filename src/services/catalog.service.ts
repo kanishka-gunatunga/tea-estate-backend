@@ -24,7 +24,7 @@ function formatService(service: {
 export async function listServices(filters: { status?: ServiceStatus; search?: string }) {
   const services = await prisma.service.findMany({
     where: {
-      status: filters.status ?? 'active',
+      status: filters.status,
       ...(filters.search
         ? {
             OR: [
@@ -93,9 +93,8 @@ export async function deleteService(id: string) {
     throw new AppError(404, 'Service not found');
   }
 
-  const service = await prisma.service.update({
+  const service = await prisma.service.delete({
     where: { id },
-    data: { status: 'inactive' },
   });
 
   return formatService(service);
