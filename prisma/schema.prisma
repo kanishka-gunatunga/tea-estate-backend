@@ -132,6 +132,7 @@ model Estate {
   assignedUsers    User[]
 
   @@index([status])
+  @@map("estate")
 }
 
 model Section {
@@ -150,6 +151,7 @@ model Section {
 
   @@index([estateId])
   @@index([status])
+  @@map("section")
 }
 
 model User {
@@ -172,6 +174,7 @@ model User {
   @@index([role])
   @@index([status])
   @@index([assignedEstateId])
+  @@map("user")
 }
 
 model Service {
@@ -188,6 +191,7 @@ model Service {
   dailyAssignments DailyAssignment[]
 
   @@index([status])
+  @@map("service")
 }
 
 model Employee {
@@ -207,6 +211,7 @@ model Employee {
 
   @@index([estateId])
   @@index([status])
+  @@map("employee")
 }
 
 model EmployeeService {
@@ -218,6 +223,7 @@ model EmployeeService {
 
   @@id([employeeId, serviceId])
   @@index([serviceId])
+  @@map("employeeservice")
 }
 
 model DailyAssignment {
@@ -241,6 +247,7 @@ model DailyAssignment {
   @@index([estateId])
   @@index([status])
   @@index([estateId, date])
+  @@map("dailyassignment")
 }
 
 model WorkerAssignment {
@@ -257,6 +264,7 @@ model WorkerAssignment {
 
   @@unique([dailyAssignmentId, employeeId])
   @@index([employeeId])
+  @@map("workerassignment")
 }
 
 model Expense {
@@ -278,6 +286,7 @@ model Expense {
   @@index([estateId])
   @@index([status])
   @@index([category])
+  @@map("expense")
 }
 
 model CalendarEvent {
@@ -297,6 +306,7 @@ model CalendarEvent {
 
   @@index([startDate])
   @@index([estateId])
+  @@map("calendarevent")
 }
 
 model BackupRecord {
@@ -310,6 +320,7 @@ model BackupRecord {
   createdAt DateTime     @default(now())
 
   @@index([createdAt])
+  @@map("backuprecord")
 }
 
 model BackupSettings {
@@ -317,4 +328,6 @@ model BackupSettings {
   enabled   Boolean        @default(false)
   schedule  BackupSchedule @default(daily)
   updatedAt DateTime       @updatedAt
+
+  @@map("backupsettings")
 }
