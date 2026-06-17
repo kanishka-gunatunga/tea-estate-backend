@@ -149,9 +149,8 @@ export async function deleteUser(id: string) {
     throw new AppError(404, 'User not found');
   }
 
-  const user = await prisma.user.update({
+  const user = await prisma.user.delete({
     where: { id },
-    data: { status: 'inactive' },
   });
 
   return formatUser(user);
