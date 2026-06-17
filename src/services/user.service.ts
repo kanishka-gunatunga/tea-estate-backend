@@ -30,7 +30,7 @@ function formatUser(user: {
 export async function listUsers(filters: { role?: UserRole; search?: string; status?: UserStatus }) {
   const users = await prisma.user.findMany({
     where: {
-      status: filters.status ?? 'active',
+      status: filters.status,
       role: filters.role,
       ...(filters.search
         ? {
