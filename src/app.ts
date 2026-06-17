@@ -35,5 +35,5 @@ app.use('/api/v1', routes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
-// test
+
 export default app;
